@@ -3,7 +3,10 @@ import cv2 as cv
 import numpy as np
 from ocr import run_ocr
 
-cap = cv.VideoCapture(-1)
+# -1 for pi
+# 0 for laptop webcam
+
+cap = cv.VideoCapture(1)
 
 # Check if camera opened successfully
 if (cap.isOpened()== False):

@@ -54,18 +54,20 @@ def main():
 
                     pre_processed_landmark_list = pre_process_landmark(
                         landmark_list)
+
                     pre_processed_point_history_list = pre_process_point_history(
                         debug_image, point_history)
                     
-                    gesture = detect_gesture(landmark_list)
+                    gesture = detect_gesture(pre_processed_landmark_list)
 
                     point_history.append(landmark_list[8])
 
                     brect = calc_bounding_rect(debug_image, hand_landmarks)
                     debug_image = draw_bounding_rect(debug_image, brect)
+                    debug_image = draw_info_text(debug_image, brect, gesture)
 
                     mp_drawing.draw_landmarks(debug_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            
+
             debug_image = draw_point_history(debug_image, point_history)
             cv2.imshow('MediaPipe Hands', debug_image)
             
@@ -76,33 +78,54 @@ def main():
     cv2.destroyAllWindows()
 
 def detect_gesture(pre_processed_landmark_list):
-    base = pre_processed_landmark_list[0]
-    thumb = pre_processed_landmark_list[4]
-    pointer = pre_processed_landmark_list[8]
-    middle = pre_processed_landmark_list[12]
-    ring = pre_processed_landmark_list[16]
-    pinky = pre_processed_landmark_list[20]
+    base = [pre_processed_landmark_list[0], pre_processed_landmark_list[1]]
+    thumb = [pre_processed_landmark_list[8], pre_processed_landmark_list[9]]
+    pointer = [pre_processed_landmark_list[16], pre_processed_landmark_list[17]]
+    middle = [pre_processed_landmark_list[24], pre_processed_landmark_list[25]]
+    ring = [pre_processed_landmark_list[32], pre_processed_landmark_list[33]]
+    pinky = [pre_processed_landmark_list[40], pre_processed_landmark_list[41]]
+
+    pointer_knuckle = [pre_processed_landmark_list[12], pre_processed_landmark_list[13]]
+    middle_knuckle = [pre_processed_landmark_list[20], pre_processed_landmark_list[21]]
+    ring_knuckle = [pre_processed_landmark_list[28], pre_processed_landmark_list[29]]
+    pinky_knuckle = [pre_processed_landmark_list[36], pre_processed_landmark_list[37]]
 
     gesture = "None"
 
-    print("base position: ", base)
-    print("thumb position: ", thumb)
-    print("pointer position: ", pointer)
-    print("middle position: ", middle)
-    print("ring position: ", ring)
-    print("pinky position: ", pinky)
-
+    # print("base position: ", base)
+    # print("thumb position: ", thumb)
+    # print("pointer position: ", pointer)
+    # print("pointer knuckle: ", pointer_knuckle)
+    # print("middle position: ", middle)
+    # print("ring position: ", ring)
+    # print("pinky position: ", pinky)
 
     # thumbs up?
-# check if thumb is highest above all
-# check that other fingers are close(ish) to base
+    folded_fingers = abs(pointer_knuckle[0]) > abs(pointer[0]) and abs(middle_knuckle[0]) > abs(middle[0]) and abs(ring_knuckle[0]) > abs(ring[0]) and abs(pinky_knuckle[0]) > abs(pinky[0])
+    if_thumbs_up = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (base[0] - thumb[1] > 0.9) and folded_fingers
+    if if_thumbs_up: gesture = "Thumbs up! :D"
 
+    if_thumbs_down = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (thumb[1] - base[0] > 0.9) and folded_fingers
+    if if_thumbs_down: gesture = "Thumbs down! D:"
     # point left?
-
     # point right?
 
-
     return gesture
+
+def points_in_range(list_of_points, x_range, y_range):
+    xs, ys = zip(*list_of_points)
+    x_mean = sum(xs)/len(xs)
+    print("x mean: ", x_mean)
+    y_mean = sum(ys)/len(ys)
+    print("y mean: ", y_mean)
+    for point in list_of_points:
+        if x_range is not None:
+            print(" check point x: ", point[0] - x_mean)
+            if abs(point[0] - x_mean) > x_range: return False
+        if y_range is not None:
+            print(" check point y: ", point[1] - y_mean)
+            if abs(point[1] - y_mean) > y_range: return False
+    return True
 
 def calc_bounding_rect(image, landmarks):
     image_width, image_height = image.shape[1], image.shape[0]
@@ -155,8 +178,11 @@ def pre_process_landmark(landmark_list):
         temp_landmark_list[index][0] = temp_landmark_list[index][0] - base_x
         temp_landmark_list[index][1] = temp_landmark_list[index][1] - base_y
 
+    #print("temp landmark list: ", temp_landmark_list)
     temp_landmark_list = list(
         itertools.chain.from_iterable(temp_landmark_list))
+
+    #print("temp landmark list after chain: ", temp_landmark_list)
 
     max_value = max(list(map(abs, temp_landmark_list)))
 
@@ -164,6 +190,8 @@ def pre_process_landmark(landmark_list):
         return n / max_value
 
     temp_landmark_list = list(map(normalize_, temp_landmark_list))
+
+    #print("temp landmark list after normalize: ", temp_landmark_list)
 
     return temp_landmark_list
 
@@ -193,6 +221,12 @@ def draw_point_history(image, point_history):
         if point[0] != 0 and point[1] != 0:
             cv2.circle(image, (point[0], point[1]), 1 + int(index / 2),
                       (152, 251, 152), 2)
+
+    return image
+
+def draw_info_text(image, brect, hand_sign_text):
+    cv2.putText(image, hand_sign_text, (brect[0] + 5, brect[1] - 4),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
     return image
 

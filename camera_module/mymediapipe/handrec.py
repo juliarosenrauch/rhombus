@@ -21,7 +21,7 @@ def main():
     point_history = deque(maxlen=history_length)
 
     with mp_hands.Hands(
-        max_num_hands=1,
+        max_num_hands=2,
         min_detection_confidence=0.7,
         min_tracking_confidence=0.5) as hands:
 
@@ -101,29 +101,39 @@ def detect_gesture(pre_processed_landmark_list):
     # print("pinky position: ", pinky)
 
     # thumbs up?
-    folded_fingers = abs(pointer_knuckle[0]) > abs(pointer[0]) and abs(middle_knuckle[0]) > abs(middle[0]) and abs(ring_knuckle[0]) > abs(ring[0]) and abs(pinky_knuckle[0]) > abs(pinky[0])
-    if_thumbs_up = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (base[0] - thumb[1] > 0.9) and folded_fingers
+    if_four_folded_fingers = folded_fingers([pointer,middle,ring,pinky], [pointer_knuckle,middle_knuckle,ring_knuckle,pinky_knuckle])
+    if_thumbs_up = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (base[0] - thumb[1] > 0.9) and if_four_folded_fingers
     if if_thumbs_up: gesture = "Thumbs up! :D"
 
-    if_thumbs_down = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (thumb[1] - base[0] > 0.9) and folded_fingers
+    # thumbs down?
+    if_thumbs_down = points_in_range([pointer,middle,ring,pinky], 0.2, None) and (thumb[1] - base[0] > 0.9) and if_four_folded_fingers
     if if_thumbs_down: gesture = "Thumbs down! D:"
+    
     # point left?
+    if_three_folded_fingers = folded_fingers([middle,ring,pinky], [middle_knuckle,ring_knuckle,pinky_knuckle])
+    if_left_point = (base[0] - pointer[0] > 0.9) and if_three_folded_fingers
+    if if_left_point: gesture = "Left"
+
     # point right?
+    if_right_point = (pointer[0] - base[0] > 0.9) and if_three_folded_fingers
+    if if_right_point: gesture = "Right"
 
     return gesture
+
+def folded_fingers(tips, knuckles):
+    for tip, knuckle in zip(tips, knuckles):
+        if abs(knuckle[0]) <= abs(tip[0]):
+            return False
+    return True
 
 def points_in_range(list_of_points, x_range, y_range):
     xs, ys = zip(*list_of_points)
     x_mean = sum(xs)/len(xs)
-    print("x mean: ", x_mean)
     y_mean = sum(ys)/len(ys)
-    print("y mean: ", y_mean)
     for point in list_of_points:
         if x_range is not None:
-            print(" check point x: ", point[0] - x_mean)
             if abs(point[0] - x_mean) > x_range: return False
         if y_range is not None:
-            print(" check point y: ", point[1] - y_mean)
             if abs(point[1] - y_mean) > y_range: return False
     return True
 
